@@ -26,6 +26,7 @@ ROUNDS = 8
 SLOT_MARGIN = 10
 FEEDBACK_BUTTON_RECT = pygame.Rect(650, 450, 100, 40)
 RESTART_BUTTON_RECT = pygame.Rect(150, 450, 100, 40)
+CHECKBOX_SIZE = 20
 
 # FIRST_SLOT_TOP = (HEIGHT - (SLOTS_Y * SLOT_SIZE + (SLOTS_Y + 13) * SLOT_MARGIN)) / 2
 FIRST_SLOT_TOP = 40
@@ -37,8 +38,12 @@ COLORS = [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE]
 # Initialize the list to store color buttons
 color_buttons = []
 
-# Game setting
-CHECKBOX_SIZE = 20
+# The list, which contains the colors which need to guess
+secret_code = []
+
+# Initialize the game window
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Mastermind")
 
 
 # Function to draw a checkbox
@@ -48,12 +53,15 @@ def draw_checkbox(x, y, checked):
     if checked:
         pygame.draw.line(screen, BLACK, (x, y), (x + CHECKBOX_SIZE, y + CHECKBOX_SIZE), 2)
         pygame.draw.line(screen, BLACK, (x, y + CHECKBOX_SIZE), (x + CHECKBOX_SIZE, y), 2)
-
-
-# Function to draw a button
-def draw_button(x, y, caption):
     font = pygame.font.Font(None, 30)
-    text = font.render(caption, True, BLACK)
+    text = font.render('Color duplication is allowed', True, BLACK)
+    screen.blit(text, (x + CHECKBOX_SIZE + 10, y + 2))
+
+
+# Function to draw the start button
+def draw_start_button(x, y):
+    font = pygame.font.Font(None, 30)
+    text = font.render('Start', True, BLACK)
     pygame.draw.rect(screen, WHITE, (x, y, text.get_width() + 20, text.get_height() + 10))
     pygame.draw.rect(screen, BLACK, (x, y, text.get_width() + 20, text.get_height() + 10), 2)
     screen.blit(text, (x + 10, y + 5))
@@ -99,13 +107,6 @@ def draw_feedback(correct, rounds_left):
     for _ in range(4):
         pygame.draw.circle(screen, BLACK, (x, y), circle_radius, 1)
         x += circle_spacing
-
-
-# Initialize the game window
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Mastermind")
-
-secret_code = []
 
 
 # Generate random code for the game
@@ -196,7 +197,7 @@ def draw_restart_button():
     screen.blit(text, (RESTART_BUTTON_RECT.x + 15, RESTART_BUTTON_RECT.y + 10))
 
 
-def check_click_on_colors(slots, rounds_left, event):
+def fill_slots_with_clicked_color(slots, rounds_left, event):
     for i, color_rect in enumerate(color_buttons):
         if color_rect.collidepoint(event.pos):
             # Find the first empty slot in the current row and fill it with the selected color
@@ -232,7 +233,6 @@ def find_slot_index(x, y, row):
 
 
 # Initialize setting page
-
 # Settings
 def settings():
     running = True
@@ -241,7 +241,7 @@ def settings():
     screen.fill(GREY)
     # Draw the checkbox and button
     draw_checkbox(100, 100, checkbox_checked)
-    draw_button(150, 150, "Start")
+    draw_start_button(150, 150)
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -306,7 +306,7 @@ def game_loop(with_duplication):
                 elif RESTART_BUTTON_RECT.collidepoint(event.pos):
                     return True
                 elif (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
-                        and check_click_on_colors(slots, rounds_left, event)):
+                      and fill_slots_with_clicked_color(slots, rounds_left, event)):
                     draw_placed_colors(slots)
                 else:
                     x, y = event.pos
