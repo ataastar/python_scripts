@@ -59,6 +59,7 @@ feedbacks = []
 
 # stores the possibilities
 all_possibilities = []
+remaining_possibilities = []
 
 
 # Function to draw a checkbox
@@ -82,10 +83,9 @@ def draw_start_button(x, y):
     screen.blit(text, (x + 10, y + 5))
 
 
-# Calculate and stores the feedback
-def store_feedback(guess):
+# Calculates the feedback for the defined guess and secret colors
+def calculate_feedback(guess, secret_colors):
     # Check the guess and provide feedback
-    secret_colors = secret_code[:]
     correct_positions = 0
     correct_colors = 0
 
@@ -103,7 +103,7 @@ def store_feedback(guess):
         if guess[i] in secret_colors and i not in correct_position_index:
             correct_colors += 1
             secret_colors[secret_colors.index(guess[i])] = None
-    feedbacks.append([correct_positions, correct_colors])
+    return [correct_positions, correct_colors]
 
 
 # Draws the current feedback
@@ -316,13 +316,32 @@ def fill_all_possibilities(current_possibility, remaining_colors):
 
 
 # Calculate probability for the current slot row
-def calculate_probability(row_index):
-    if row_index == 0:
-        probability = 1
-        for possible_color_number in range(len(COLORS), len(COLORS) - SLOTS_X + 1):
-            probability *= possible_color_number
-    # else
-    #    for
+def calculate_possibility_count(guess, row_index):
+    global remaining_possibilities
+    temp_possibilities = []
+    for possibility in remaining_possibilities:
+        if check_possibility(guess, possibility, row_index):
+            temp_possibilities.append(possibility)
+    remaining_possibilities = temp_possibilities
+    return len(remaining_possibilities)
+
+
+# Draw the possibility count
+def draw_possibility_count(count, row_index):
+    x = FIRST_SLOT_LEFT - 40
+    y = FIRST_SLOT_TOP + row_index * (SLOT_SIZE + SLOT_MARGIN) + 10
+    font = pygame.font.Font(None, 30)
+    text = font.render(str(count), True, BLACK)
+    screen.blit(text, (x, y))
+
+
+# check the possibility with the feedback
+def check_possibility(guess, possibility, row_index):
+    feedback = feedbacks[row_index]
+    # the possibility is right if the possibility's feedback against the guess is the same as the guess' feedback
+    # against the secret colors
+    possibility_feedback = calculate_feedback(possibility, guess[:])
+    return feedback[0] == possibility_feedback[0] and feedback[1] == possibility_feedback[1]
 
 
 # Initialize setting page
@@ -383,10 +402,12 @@ def game_loop():
 
     running = True
 
-    # Fill all possibilities
+    # handle possibilities
     global all_possibilities
+    global remaining_possibilities
     all_possibilities = []
     fill_all_possibilities([], [])
+    remaining_possibilities = all_possibilities
 
     # Draw placed colors in the slots
     draw_placed_colors(slots)
@@ -398,6 +419,9 @@ def game_loop():
     draw_feedback_button(rounds_left)
     draw_restart_button()
 
+    # draw the first possibility count
+    draw_possibility_count(len(all_possibilities), 0)
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -405,12 +429,15 @@ def game_loop():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # check that the feedback button is clicked
                 if FEEDBACK_BUTTON_RECT.collidepoint(event.pos) and rounds_left > 0:
-                    store_feedback(slots[ROUNDS - rounds_left])
+                    feedbacks.append(calculate_feedback(slots[ROUNDS - rounds_left], secret_code[:]))
                     draw_feedback(ROUNDS - rounds_left)
+                    possibility_count = calculate_possibility_count(slots[ROUNDS - rounds_left], ROUNDS - rounds_left)
                     rounds_left -= 1
                     # Check if the game has ended
                     if rounds_left == 0:
                         draw_secret_colors()
+                    else:
+                        draw_possibility_count(possibility_count, ROUNDS - rounds_left)
                 # check that the restart button is clicked
                 elif RESTART_BUTTON_RECT.collidepoint(event.pos):
                     return True
