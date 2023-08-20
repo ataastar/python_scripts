@@ -51,6 +51,9 @@ dragged_color_index = -1
 # the dragged color position before the mouse button is released
 dragged_position = None
 
+# settings variables
+color_duplication_enabled = False
+
 
 # Function to draw a checkbox
 def draw_checkbox(x, y, checked):
@@ -213,12 +216,20 @@ def color_is_clicked(event):
 
 
 # Place the selected color
-def place_color(slots, rounds_left, index):
+def place_color(slots, rounds_left, index_of_the_color, index_of_the_slot=-1):
     # Find the first empty slot in the current row and fill it with the selected color
     row = ROUNDS - rounds_left
-    col = find_first_empty_slot(slots, row)
-    if col != -1:
-        slots[row][col] = COLORS[index]
+    # if duplication is not allowed, then check that the row of the slot contains the selected color
+    global color_duplication_enabled
+    if not color_duplication_enabled:
+        color = COLORS[index_of_the_color]
+        for col in range(SLOTS_X):
+            if slots[row][col] == color:
+                return
+    if index_of_the_slot == -1:
+        index_of_the_slot = find_first_empty_slot(slots, row)
+    if index_of_the_slot != -1:
+        slots[row][index_of_the_slot] = COLORS[index_of_the_color]
 
 
 # Function to draw the secret colors at the end of the game
@@ -248,11 +259,11 @@ def find_slot_index(x, y, row):
 # Settings
 def settings():
     running = True
-    checkbox_checked = False
+    global color_duplication_enabled
     # Clear the screen
     screen.fill(GREY)
     # Draw the checkbox and button
-    draw_checkbox(100, 100, checkbox_checked)
+    draw_checkbox(100, 100, color_duplication_enabled)
     draw_start_button(150, 150)
     while running:
         for event in pygame.event.get():
@@ -260,10 +271,10 @@ def settings():
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if 100 <= event.pos[0] <= 100 + CHECKBOX_SIZE and 100 <= event.pos[1] <= 100 + CHECKBOX_SIZE:
-                    checkbox_checked = not checkbox_checked
-                    draw_checkbox(100, 100, checkbox_checked)
+                    color_duplication_enabled = not color_duplication_enabled
+                    draw_checkbox(100, 100, color_duplication_enabled)
                 elif 150 <= event.pos[0] <= 250 and 150 <= event.pos[1] <= 180:
-                    if game_loop(checkbox_checked):
+                    if game_loop():
                         return True
                     else:
                         return False
@@ -273,14 +284,15 @@ def settings():
 
 
 # Main game loop
-def game_loop(with_duplication):
+def game_loop():
     global ROUNDS
     global SLOTS_Y
     global secret_code
     global dragged_color_index
     global dragged_position
+    global color_duplication_enabled
     secret_code = []
-    if with_duplication:
+    if color_duplication_enabled:
         generate_random_codes()
         ROUNDS = 8
         SLOTS_Y = 8
@@ -344,9 +356,9 @@ def game_loop(with_duplication):
                         # Find the row and slot index for the drop position
                         row = (dragged_position[1] - FIRST_SLOT_TOP) // (SLOT_SIZE + SLOT_MARGIN)
                         col = (dragged_position[0] - FIRST_SLOT_LEFT) // (SLOT_SIZE + SLOT_MARGIN)
-                        if 0 <= row < ROUNDS and 0 <= col < SLOTS_X:
-                            # Place the dragged color
-                            slots[row][col] = COLORS[dragged_color_index]
+                        if row == (ROUNDS - rounds_left) and 0 <= col < SLOTS_X:
+                            # Place the dragged color into the slot index, define by the mouse position
+                            place_color(slots, rounds_left, dragged_color_index, col)
                         else:
                             # place the color just if the current mouse position is on the previously clicked color
                             color_index = color_is_clicked(event)
