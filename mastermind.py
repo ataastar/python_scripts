@@ -49,10 +49,16 @@ pygame.display.set_caption("Mastermind")
 # the dragged color index
 dragged_color_index = -1
 # the dragged color position before the mouse button is released
-dragged_position = None
+dragged_position = []
 
 # settings variables
 color_duplication_enabled = False
+
+# stores the feedbacks
+feedbacks = []
+
+# stores the possibilities
+all_possibilities = []
 
 
 # Function to draw a checkbox
@@ -76,8 +82,8 @@ def draw_start_button(x, y):
     screen.blit(text, (x + 10, y + 5))
 
 
-# Function to calculate the feedback
-def calculate_feedback(guess):
+# Calculate and stores the feedback
+def store_feedback(guess):
     # Check the guess and provide feedback
     secret_colors = secret_code[:]
     correct_positions = 0
@@ -97,15 +103,16 @@ def calculate_feedback(guess):
         if guess[i] in secret_colors and i not in correct_position_index:
             correct_colors += 1
             secret_colors[secret_colors.index(guess[i])] = None
+    feedbacks.append([correct_positions, correct_colors])
 
-    return [correct_positions, correct_colors]
 
-
-def draw_feedback(correct, rounds_left):
+# Draws the current feedback
+def draw_feedback(row_index):
+    correct = feedbacks[row_index]
     circle_radius = 8
     circle_spacing = 20
     x = FEEDBACK_BUTTON_RECT.x - 120
-    y = FIRST_SLOT_TOP + (ROUNDS - rounds_left) * (SLOT_SIZE + SLOT_MARGIN) + 15
+    y = FIRST_SLOT_TOP + row_index * (SLOT_SIZE + SLOT_MARGIN) + 15
     for _ in range(correct[0]):
         pygame.draw.circle(screen, BLACK, (x, y), circle_radius)
         x += circle_spacing
@@ -232,6 +239,40 @@ def place_color(slots, rounds_left, index_of_the_color, index_of_the_slot=-1):
         slots[row][index_of_the_slot] = COLORS[index_of_the_color]
 
 
+# handle drag&drop and simple mouse click
+def handle_mouse_button_up(event, slots, rounds_left):
+    global dragged_color_index
+    global dragged_position
+    # when the color is dragged and the mouse button is released
+    if len(dragged_position) > 0:
+        # Find the row and slot index for the drop position
+        row = (dragged_position[1] - FIRST_SLOT_TOP) // (SLOT_SIZE + SLOT_MARGIN)
+        col = (dragged_position[0] - FIRST_SLOT_LEFT) // (SLOT_SIZE + SLOT_MARGIN)
+        if row == (ROUNDS - rounds_left) and 0 <= col < SLOTS_X:
+            # Place the dragged color into the slot index, define by the mouse position
+            place_color(slots, rounds_left, dragged_color_index, col)
+        else:
+            # place the color just if the current mouse position is on the previously clicked color
+            color_index = color_is_clicked(event)
+            if color_index == dragged_color_index:
+                place_color(slots, rounds_left, dragged_color_index)
+    else:
+        place_color(slots, rounds_left, dragged_color_index)
+    draw_placed_colors(slots)
+    dragged_color_index = -1
+    dragged_position = []
+
+
+# Removes the color from the slots, if the user click on the slots
+def remove_color(event, slots, rounds_left):
+    # check that the slots are clicked. In this case need to remove the color if it is placed
+    x, y = event.pos
+    slot_index = find_slot_index(x, y, ROUNDS - rounds_left)
+    if slot_index != -1 and ROUNDS - rounds_left >= 0:
+        slots[ROUNDS - rounds_left][slot_index] = None
+        draw_placed_colors(slots)
+
+
 # Function to draw the secret colors at the end of the game
 def draw_secret_colors():
     for i in range(len(secret_code)):
@@ -253,6 +294,35 @@ def find_slot_index(x, y, row):
         if slot_rect.collidepoint(x, y):
             return col
     return -1
+
+
+# fill all possibilities
+def fill_all_possibilities(current_possibility, remaining_colors):
+    if not remaining_colors:
+        current_possibility = []
+        for color in COLORS:
+            remaining_colors.append(color)
+    temp_remaining_colors = remaining_colors[:]
+    for color in remaining_colors:
+        current_possibility.append(color)
+        if len(current_possibility) == SLOTS_X:
+            all_possibilities.append(current_possibility[:])
+            current_possibility.pop()
+        else:
+            temp_remaining_colors.remove(color)
+            fill_all_possibilities(current_possibility[:], temp_remaining_colors)
+            current_possibility.pop()
+            temp_remaining_colors.append(color)
+
+
+# Calculate probability for the current slot row
+def calculate_probability(row_index):
+    if row_index == 0:
+        probability = 1
+        for possible_color_number in range(len(COLORS), len(COLORS) - SLOTS_X + 1):
+            probability *= possible_color_number
+    # else
+    #    for
 
 
 # Initialize setting page
@@ -291,7 +361,9 @@ def game_loop():
     global dragged_color_index
     global dragged_position
     global color_duplication_enabled
+    global feedbacks
     secret_code = []
+    # handle color duplication
     if color_duplication_enabled:
         generate_random_codes()
         ROUNDS = 8
@@ -303,11 +375,18 @@ def game_loop():
     slots = [[None for _ in range(SLOTS_X)] for _ in range(SLOTS_Y)]
     rounds_left = ROUNDS
 
+    feedbacks = []
+
     init_color_buttons()
 
     screen.fill(GREY)
 
     running = True
+
+    # Fill all possibilities
+    global all_possibilities
+    all_possibilities = []
+    fill_all_possibilities([], [])
 
     # Draw placed colors in the slots
     draw_placed_colors(slots)
@@ -326,7 +405,8 @@ def game_loop():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # check that the feedback button is clicked
                 if FEEDBACK_BUTTON_RECT.collidepoint(event.pos) and rounds_left > 0:
-                    draw_feedback(calculate_feedback(slots[ROUNDS - rounds_left]), rounds_left)
+                    store_feedback(slots[ROUNDS - rounds_left])
+                    draw_feedback(ROUNDS - rounds_left)
                     rounds_left -= 1
                     # Check if the game has ended
                     if rounds_left == 0:
@@ -341,34 +421,14 @@ def game_loop():
                         dragged_color_index = color_index
                     else:
                         # check that the slots are clicked. In this case need to remove the color if it is placed
-                        x, y = event.pos
-                        slot_index = find_slot_index(x, y, ROUNDS - rounds_left)
-                        if slot_index != -1 and ROUNDS - rounds_left >= 0:
-                            slots[ROUNDS - rounds_left][slot_index] = None
-                            draw_placed_colors(slots)
+                        remove_color(event, slots, rounds_left)
             # check that the mouse is dragged
             elif event.type == pygame.MOUSEMOTION and dragged_color_index > -1:
                 dragged_position = event.pos
             elif event.type == pygame.MOUSEBUTTONUP:
+                # when the color is clicked before (drag or simple click)
                 if dragged_color_index > -1:
-                    # when the color is dragged and the mouse button is released
-                    if dragged_position is not None:
-                        # Find the row and slot index for the drop position
-                        row = (dragged_position[1] - FIRST_SLOT_TOP) // (SLOT_SIZE + SLOT_MARGIN)
-                        col = (dragged_position[0] - FIRST_SLOT_LEFT) // (SLOT_SIZE + SLOT_MARGIN)
-                        if row == (ROUNDS - rounds_left) and 0 <= col < SLOTS_X:
-                            # Place the dragged color into the slot index, define by the mouse position
-                            place_color(slots, rounds_left, dragged_color_index, col)
-                        else:
-                            # place the color just if the current mouse position is on the previously clicked color
-                            color_index = color_is_clicked(event)
-                            if color_index == dragged_color_index:
-                                place_color(slots, rounds_left, dragged_color_index)
-                    else:
-                        place_color(slots, rounds_left, dragged_color_index)
-                    draw_placed_colors(slots)
-                    dragged_color_index = -1
-                    dragged_position = None
+                    handle_mouse_button_up(event, slots, rounds_left)
         # Update the display
         pygame.display.update()
         # do not need to loop too quickly
