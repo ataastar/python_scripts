@@ -296,7 +296,7 @@ def find_slot_index(x, y, row):
     return -1
 
 
-# fill all possibilities
+# fill all possibilities recursively
 def fill_all_possibilities(current_possibility, remaining_colors):
     temp_remaining_colors = remaining_colors[:]
     for color in remaining_colors:
@@ -305,10 +305,12 @@ def fill_all_possibilities(current_possibility, remaining_colors):
             all_possibilities.append(current_possibility[:])
             current_possibility.pop()
         else:
-            temp_remaining_colors.remove(color)
+            if not color_duplication_enabled:
+                temp_remaining_colors.remove(color)
             fill_all_possibilities(current_possibility[:], temp_remaining_colors)
             current_possibility.pop()
-            temp_remaining_colors.append(color)
+            if not color_duplication_enabled:
+                temp_remaining_colors.append(color)
 
 
 # Calculate probability for the current slot row
@@ -324,7 +326,7 @@ def calculate_possibility_count(guess, row_index):
 
 # Draw the possibility count
 def draw_possibility_count(count, row_index):
-    x = FIRST_SLOT_LEFT - 40
+    x = FIRST_SLOT_LEFT - 50
     y = FIRST_SLOT_TOP + row_index * (SLOT_SIZE + SLOT_MARGIN) + 10
     font = pygame.font.Font(None, 30)
     text = font.render(str(count), True, BLACK)
