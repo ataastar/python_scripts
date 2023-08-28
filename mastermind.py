@@ -33,7 +33,9 @@ FIRST_SLOT_TOP = 40
 FIRST_SLOT_LEFT = (WIDTH - (SLOTS_X * SLOT_SIZE + SLOTS_X * SLOT_MARGIN)) // 2
 
 # List of available colors
-COLORS = [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE]
+COLORS = []
+COLORS_6 = [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE]
+COLORS_8 = [RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, WHITE, BLACK]
 
 # Initialize the list to store color buttons
 color_buttons = []
@@ -379,6 +381,11 @@ def game_loop():
     global dragged_position
     global color_duplication_enabled
     global feedbacks
+    global COLORS
+    if color_duplication_enabled:
+        COLORS = COLORS_6
+    else:
+        COLORS = COLORS_8
     secret_code = []
     # handle color duplication
     if color_duplication_enabled:
