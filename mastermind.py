@@ -298,10 +298,6 @@ def find_slot_index(x, y, row):
 
 # fill all possibilities
 def fill_all_possibilities(current_possibility, remaining_colors):
-    if not remaining_colors:
-        current_possibility = []
-        for color in COLORS:
-            remaining_colors.append(color)
     temp_remaining_colors = remaining_colors[:]
     for color in remaining_colors:
         current_possibility.append(color)
@@ -406,7 +402,7 @@ def game_loop():
     global all_possibilities
     global remaining_possibilities
     all_possibilities = []
-    fill_all_possibilities([], [])
+    fill_all_possibilities([], COLORS[:])
     remaining_possibilities = all_possibilities
 
     # Draw placed colors in the slots
